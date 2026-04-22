@@ -1,0 +1,36 @@
+const express = require('express');
+const router = express.Router();
+const adminController = require('../controllers/adminController');
+
+const {adminAuthCheck, verifyAdminApiKey} = require('../middleware/adminAuthCheck')
+
+router.post('/register', adminController.adminRegister)
+router.post('/login', adminController.adminLogin)
+router.post('/logout', adminController.adminLogin)
+
+//blog operations
+// router.get('/blog', adminAuthCheck, verifyAdminApiKey, adminController.getAllBlogs) 
+// router.post('/create-blog', adminAuthCheck, verifyAdminApiKey, adminController.createBlog) 
+// router.put('/update-blog/:id', adminAuthCheck, verifyAdminApiKey, adminController.updateBlog) 
+// router.delete('/delete-blog/:id', adminAuthCheck, verifyAdminApiKey, adminController.deleteBlog) 
+
+//admin loginpage && admin registerpage && admin dashboardpage && update password page && writer registerpage 
+router.get('/dashboard', adminAuthCheck, adminController.dashboard)
+
+
+//create writer(API)
+router.post('/create-writer', adminAuthCheck, adminController.writerRegister) 
+
+
+//admin update password(API)
+router.post('/update-password', adminAuthCheck, adminController.adminPasswordUpdate)
+
+//blog approval by admin(API)
+router.post("/blog/approval/:blogId", adminAuthCheck, verifyAdminApiKey, adminController.approveAndPublishBlog);
+router.post("/blog/reject/:blogId", adminAuthCheck, verifyAdminApiKey, adminController.rejectBlog);
+
+//blog operations(CRUD) from one endpoint/route(API)
+router.all("/blog", adminAuthCheck, verifyAdminApiKey, adminController.blogOperations);
+router.all("/blog/:id", adminAuthCheck, verifyAdminApiKey, adminController.blogOperations);
+
+module.exports = router
