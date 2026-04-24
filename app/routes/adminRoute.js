@@ -15,7 +15,7 @@ router.post('/logout', adminController.adminLogin)
 // router.delete('/delete-blog/:id', adminAuthCheck, verifyAdminApiKey, adminController.deleteBlog) 
 
 //admin loginpage && admin registerpage && admin dashboardpage && update password page && writer registerpage 
-router.get('/dashboard', adminAuthCheck, adminController.dashboard)
+// router.get('/dashboard', adminAuthCheck, adminController.dashboard)
 
 
 //create writer(API)

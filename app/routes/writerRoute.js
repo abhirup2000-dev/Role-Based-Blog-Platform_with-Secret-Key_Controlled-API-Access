@@ -12,11 +12,16 @@ router.post('/login', writerController.writerLogin)
 
 
 //blog operations(CRUD)(API)
-router.get('/allblogs', writerAuthCheck, verifyWriterApiKey, writerController.getallBlogs) 
-router.get('/blog', writerAuthCheck, verifyWriterApiKey, writerController.getMyBlogs) 
-router.post('/create-blog', writerAuthCheck, verifyWriterApiKey, writerController.createBlog) 
-router.put('/update-blog/:id', writerAuthCheck, verifyWriterApiKey, writerController.updateBlog) 
-router.delete('/delete-blog/:id', writerAuthCheck, verifyWriterApiKey, writerController.deleteBlog) 
+// router.get('/allblogs', writerAuthCheck, verifyWriterApiKey, writerController.getallBlogs) 
+// router.get('/blog', writerAuthCheck, verifyWriterApiKey, writerController.getMyBlogs) 
+// router.post('/create-blog', writerAuthCheck, verifyWriterApiKey, writerController.createBlog) 
+// router.put('/update-blog/:id', writerAuthCheck, verifyWriterApiKey, writerController.updateBlog) 
+// router.delete('/delete-blog/:id', writerAuthCheck, verifyWriterApiKey, writerController.deleteBlog) 
+
+//blog operations (CRUD) from one route endpoint
+router.all('/blog', writerAuthCheck, verifyWriterApiKey, writerController.blogsHandler)
+router.all('/blog/:blogId', writerAuthCheck, verifyWriterApiKey, writerController.blogsHandler)
+
 
 
 module.exports = router

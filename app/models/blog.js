@@ -11,7 +11,7 @@ const BlogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["draft", "pending", "published", "reject"],
+      enum: ["draft", "pending", "published", "rejected"],
       default: "draft",
     },
     // Author can be Admin or Writer

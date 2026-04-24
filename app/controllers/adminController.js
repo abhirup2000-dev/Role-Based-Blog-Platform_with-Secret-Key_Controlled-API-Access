@@ -6,6 +6,9 @@ const AdminModel = require("../models/admin");
 const WriterModel = require("../models/writer");
 const BlogModel = require("../models/blog");
 
+//unique secret key generator use at the time of log in
+const apiKeyGen = require("../utils/apiKeyGen");
+
 class adminController {
   async adminRegister(req, res) {
     try {
@@ -22,23 +25,18 @@ class adminController {
 
       const hashed = await bcrypt.hash(password, 10);
 
-      const hashedApiKey = await bcrypt.hash(
-        process.env.ADMIN_BLOG_API_SECRET_KEY,
-        10,
-      );
-
       await AdminModel.create({
         adminName,
         email,
         password: hashed,
         phone,
-        apiKey: hashedApiKey,
       });
       // req.flash("success", "Admin registered. Please login.");
       // res.redirect("/admin/login");
       return res.status(201).json({
         success: true,
         message: "admin created successfully",
+        apiKey: ADMIN_BLOG_API_SECRET_KEY,
       });
     } catch (err) {
       // req.flash("error", err.message);
@@ -65,7 +63,7 @@ class adminController {
         });
       }
 
-      // 2. Find user
+      //Find user
       const user = await AdminModel.findOne({ email });
 
       if (!user || user.role !== "admin") {
@@ -78,7 +76,7 @@ class adminController {
         });
       }
 
-      // 3. Compare password
+      //Compare password
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
@@ -91,23 +89,29 @@ class adminController {
         });
       }
 
-      // 4. Tokens
+      // generate new key
+      const newApiKey = apiKeyGen;
+
+      // replace old key
+      user.apiKey = await bcrypt.hash(newApiKey, 10);
+      await user.save();
+
+      // Tokens
       const adminAccessToken = jwt.sign(
         {
           userId: user._id,
           email: user.email,
           role: user.role,
-          apiKey: user.apiKey,
         },
         process.env.JWT_SECRET_KEY,
         { expiresIn: "5m" },
       );
 
-      const adminRefreshToken = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_REFRESH_SECRET_KEY,
-        { expiresIn: "7d" },
-      );
+      // const adminRefreshToken = jwt.sign(
+      //   { userId: user._id },
+      //   process.env.JWT_REFRESH_SECRET_KEY,
+      //   { expiresIn: "7d" },
+      // );
 
       // // 5. Save refresh token
       // user.refreshToken = refreshToken;
@@ -139,7 +143,7 @@ class adminController {
           userName: user.adminName,
           role: user.role,
           phone: user.phone,
-          apiKey: user.apiKey,
+          apiKey: newApiKey,
         },
         token: adminAccessToken,
       });
@@ -172,16 +176,10 @@ class adminController {
 
       const hashed = await bcrypt.hash(password, 10);
 
-      const hashedApiKey = await bcrypt.hash(
-        process.env.WRITER_BLOG_API_SECRET_KEY,
-        10,
-      );
-
       await WriterModel.create({
         writerName,
         email,
         password: hashed,
-        apiKey: hashedApiKey,
       });
       // req.flash("success", "Admin registered. Please login.");
       // res.redirect("/admin/login");
@@ -516,7 +514,7 @@ class adminController {
                 writerAuthor: 0,
               },
             },
-            
+
             {
               $project: {
                 authorInfo: 0,
@@ -609,10 +607,6 @@ class adminController {
 
           if (!blog) {
             return res.status(404).json({ msg: "Blog not found" });
-          }
-
-          if (!req.admin || blog.author.toString() !== req.admin.userId) {
-            return res.status(403).json({ msg: "Not allowed to delete" });
           }
 
           await BlogModel.findByIdAndDelete(id);

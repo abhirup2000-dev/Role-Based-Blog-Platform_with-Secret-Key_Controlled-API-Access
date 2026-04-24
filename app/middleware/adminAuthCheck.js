@@ -1,6 +1,7 @@
 const Admin = require("../models/admin");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const Adminmodel = require("../models/admin");
 
 // const AdminAuthCheck = async (req, res, next) => {
 //   const accessToken = req.cookies?.adminAccessToken;
@@ -71,7 +72,7 @@ const bcrypt = require("bcryptjs");
 //   }
 // };
 
-const adminAuthCheck = (req, res, next) => {
+const adminAuthCheck = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -83,7 +84,13 @@ const adminAuthCheck = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-    req.admin = decoded;
+    const admin = await Adminmodel.findById(decoded.userId);
+
+    if (!admin) {
+      return res.status(401).json({ msg: "Admin not found" });
+    }
+
+    req.admin = admin
 
     next();
   } catch (err) {
@@ -91,29 +98,35 @@ const adminAuthCheck = (req, res, next) => {
   }
 };
 
-// middleware/verifyApiKey.js
-
+//auto gen api(generate at login time saved in DB) key verification
 const verifyAdminApiKey = async (req, res, next) => {
   try {
-    const apiKey = req.admin?.apiKey;
+    const key = req.headers["x-api-key"]?.trim();
 
-    if (!apiKey) {
-      return res.status(401).json({ msg: "API key missing" });
+    if (!key) {
+      return res.status(401).json({ msg: "API key required" });
     }
 
-    const isMatch = await bcrypt.compare(
-      process.env.ADMIN_BLOG_API_SECRET_KEY,
-      apiKey,
-    );
+    if (!req.admin || !req.admin.apiKey) {
+      return res.status(403).json({ msg: "Unauthorized access" });
+    }
+
+    const admin = await Adminmodel.findById(req.admin._id)
+
+    const isMatch = await bcrypt.compare(key, admin.apiKey);
 
     if (!isMatch) {
-      return res.status(403).json({ msg: "Invalid API key" });
+      return res.status(403).json({
+        msg: "Invalid API key, please enter a valid key",
+      });
     }
 
     next();
   } catch (err) {
-    return res.status(500).json({ msg: "Server error", error: err.message });
+    console.error("API KEY VERIFY ERROR:", err);
+    return res.status(500).json({ msg: "Server error" });
   }
 };
+
 
 module.exports = { adminAuthCheck, verifyAdminApiKey };
