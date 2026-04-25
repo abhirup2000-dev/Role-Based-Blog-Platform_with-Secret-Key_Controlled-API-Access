@@ -118,223 +118,7 @@ class writerController {
     }
   }
 
-  //Get all blogs (only this writer)(for individual routes)
-  // async getallBlogs(req, res) {
-  //   try {
-  //     const blogs = await BlogModel.aggregate([
-  //       //join comments by users on blogs
-  //       {
-  //         $lookup: {
-  //           from: "comments",
-  //           let: { blogId: "$_id" },
-  //           pipeline: [
-  //             {
-  //               $match: {
-  //                 $expr: { $eq: ["$blog", "$$blogId"] },
-  //               },
-  //             },
-  //             {
-  //               $lookup: {
-  //                 from: "users",
-  //                 localField: "user",
-  //                 foreignField: "_id",
-  //                 as: "user",
-  //               },
-  //             },
-  //             {
-  //               $unwind: {
-  //                 path: "$user",
-  //                 preserveNullAndEmptyArrays: true,
-  //               },
-  //             },
-  //             {
-  //               $project: {
-  //                 content: 1,
-  //                 createdAt: 1,
-  //                 user: {
-  //                   _id: "$user._id",
-  //                   userName: "$user.userName",
-  //                   email: "$user.email",
-  //                 },
-  //               },
-  //             },
-  //           ],
-  //           as: "comments",
-  //         },
-  //       },
-
-  //       //join author(admin or writer)
-  //       {
-  //         $lookup: {
-  //           from: "admins",
-  //           localField: "author",
-  //           foreignField: "_id",
-  //           as: "adminAuthor",
-  //         },
-  //       },
-  //       {
-  //         $lookup: {
-  //           from: "writers",
-  //           localField: "author",
-  //           foreignField: "_id",
-  //           as: "writerAuthor",
-  //         },
-  //       },
-  //       {
-  //         $addFields: {
-  //           author: {
-  //             $cond: {
-  //               if: { $eq: ["$authorModel", "Writer"] },
-  //               then: {
-  //                 _id: { $arrayElemAt: ["$writerAuthor._id", 0] },
-  //                 name: { $arrayElemAt: ["$writerAuthor.writerName", 0] },
-  //                 role: { $arrayElemAt: ["$writerAuthor.role", 0] },
-  //               },
-  //               else: {
-  //                 _id: { $arrayElemAt: ["$adminAuthor._id", 0] },
-  //                 name: { $arrayElemAt: ["$adminAuthor.adminName", 0] },
-  //                 role: { $arrayElemAt: ["$adminAuthor.role", 0] },
-  //               },
-  //             },
-  //           },
-
-  //           totalComments: { $size: "$comments" },
-  //           totalLikes: { $size: { $ifNull: ["$likes", []] } },
-  //         },
-  //       },
-  //       {
-  //         $project: {
-  //           adminAuthor: 0,
-  //           writerAuthor: 0,
-  //         },
-  //       },
-
-  //       {
-  //         $project: {
-  //           authorInfo: 0,
-  //         },
-  //       },
-
-  //       //sort
-  //       { $sort: { createdAt: -1 } },
-  //     ]);
-
-  //     res.status(200).json({
-  //       success: true,
-  //       count: blogs.length,
-  //       data: blogs,
-  //     });
-  //   } catch (err) {
-  //     res.status(500).json({ msg: "Failed to fetch blogs" });
-  //   }
-  // }
-  // async getMyBlogs(req, res) {
-  //   try {
-  //     const blogs = await BlogModel.find({ author: req.writer.userId });
-
-  //     res.status(200).json({
-  //       success: true,
-  //       count: blogs.length,
-  //       data: blogs,
-  //     });
-  //   } catch (err) {
-  //     res.status(500).json({ msg: "Failed to fetch blogs" });
-  //   }
-  // }
-
-  // //Create blog
-  // async createBlog(req, res) {
-  //   try {
-  //     const { title, content, excerpt, category } = req.body;
-
-  //     if (!title || !content) {
-  //       return res.status(400).json({ msg: "Title & content required" });
-  //     }
-
-  //     const blog = await BlogModel.create({
-  //       title,
-  //       content,
-  //       excerpt,
-  //       category,
-  //       author: req.writer._id,
-  //       authorModel: "Writer",
-  //     });
-
-  //     res.status(201).json({
-  //       success: true,
-  //       data: blog,
-  //     });
-  //   } catch (err) {
-  //     console.log(err);
-  //     res.status(500).json({ msg: "Failed to create blog" });
-  //   }
-  // }
-
-  // //Update blog (only own)
-  // async updateBlog(req, res) {
-  //   try {
-  //     const blog = await BlogModel.findById(req.params.id);
-
-  //     if (!blog) {
-  //       return res.status(404).json({ msg: "Blog not found" });
-  //     }
-
-  //     if (blog.author.toString() !== req.writer._id.toString()) {
-  //       return res.status(403).json({ msg: "Not authorized" });
-  //     }
-
-  //     const updatedBlog = await BlogModel.findByIdAndUpdate(
-  //       req.params.id,
-  //       req.body,
-  //       { new: true, runValidators: true },
-  //     );
-
-  //     res.status(200).json({
-  //       success: true,
-  //       data: updatedBlog,
-  //     });
-  //   } catch (err) {
-  //     console.log(err);
-  //     res.status(500).json({ msg: "Failed to update blog" });
-  //   }
-  // }
-
-  // //Delete blog (only own)
-  // async deleteBlog(req, res) {
-  //   try {
-  //     const { id } = req.params;
-
-  //     if (!id) {
-  //       return res.status(400).json({ msg: "Blog ID required" });
-  //     }
-
-  //     if (!req.writer || !req.writer._id) {
-  //       return res.status(403).json({ msg: "Writer access required" });
-  //     }
-
-  //     const blog = await BlogModel.findById(id);
-
-  //     if (!blog) {
-  //       return res.status(404).json({ msg: "Blog not found" });
-  //     }
-
-  //     //proper comparison
-  //     if (blog.author.toString() !== req.writer._id.toString()) {
-  //       return res.status(403).json({ msg: "Not authorized" });
-  //     }
-
-  //     await BlogModel.findByIdAndDelete(id); // cleaner
-
-  //     return res.status(200).json({
-  //       success: true,
-  //       msg: "Blog deleted",
-  //     });
-  //   } catch (err) {
-  //     console.error("DELETE BLOG ERROR:", err);
-  //     return res.status(500).json({ msg: "Failed to delete blog" });
-  //   }
-  // }
-
+  //CRUD operations by one endpoint and one function(using switch case)
   async blogsHandler(req, res) {
     try {
       switch (req.method) {
@@ -348,15 +132,17 @@ class writerController {
         }
 
         case "POST": {
-          const { title, content } = req.body;
+          const { title, content, excerpt, category } = req.body;
 
-          if (!title || !content) {
-            return res.status(400).json({ msg: "Title & content required" });
+          if (!title || !content || !excerpt || !category) {
+            return res.status(400).json({ msg: "all fields are required" });
           }
 
           const blog = await BlogModel.create({
             title,
             content,
+            excerpt,
+            category,
             author: req.writer._id,
             authorModel: "Writer",
           });
@@ -423,8 +209,66 @@ class writerController {
       return res.status(500).json({ msg: "Server error" });
     }
   }
+
+  async writerPasswordUpdate(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      //validate input
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters",
+        });
+      }
+
+      // get writer from DB
+      const writer = await WriterModel.findById(req.writer._id);
+
+      if (!writer) {
+        return res.status(404).json({
+          success: false,
+          message: "Admin not found",
+        });
+      }
+
+      //compare current password
+      const isMatch = await bcrypt.compare(currentPassword, writer.password);
+
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is incorrect",
+        });
+      }
+
+      // hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // update password
+      writer.password = hashedPassword;
+      await writer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated successfully",
+      });
+    } catch (err) {
+      console.error("PASSWORD UPDATE ERROR:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
 }
-
-
 
 module.exports = new writerController();

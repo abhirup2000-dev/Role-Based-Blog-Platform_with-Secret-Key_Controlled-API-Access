@@ -8,6 +8,8 @@ const writerController = require('../controllers/writerController')
 router.post('/login', writerController.writerLogin)
 // router.post('/logout', writerController.writerLogout)
 
+//update password
+router.post('/password-update', writerAuthCheck, writerController.writerPasswordUpdate)
 
 //blog operations (CRUD) from one route endpoint
 router.all('/blog', writerAuthCheck, verifyWriterApiKey, writerController.blogsHandler)

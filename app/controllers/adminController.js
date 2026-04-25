@@ -6,6 +6,9 @@ const AdminModel = require("../models/admin");
 const WriterModel = require("../models/writer");
 const BlogModel = require("../models/blog");
 
+const passwordGen = require("../utils/passwordGen");
+const transporter = require("../config/emailConfig");
+
 //unique secret key generator use at the time of log in
 const apiKeyGen = require("../utils/apiKeyGen");
 
@@ -163,7 +166,7 @@ class adminController {
   ///create writer
   async writerRegister(req, res) {
     try {
-      const { writerName, email, password } = req.body;
+      const { writerName, email } = req.body;
       const exists = await WriterModel.findOne({ email });
       if (exists) {
         // req.flash("error", "Email already registered");
@@ -174,6 +177,9 @@ class adminController {
         });
       }
 
+      //random password generate
+      const password = passwordGen();
+
       const hashed = await bcrypt.hash(password, 10);
 
       await WriterModel.create({
@@ -181,11 +187,172 @@ class adminController {
         email,
         password: hashed,
       });
+
+      const baseUrl = req.protocol + "://" + req.get("host");
+      const loginUrl = baseUrl + "/writer/login/view";
+
+      //sending creentials to writer mail id
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: email,
+        subject: "Your Login Credentials",
+        html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <title>Welcome Email</title>        </head>        <body style="margin:0;padding:0;background:#f5f6fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;padding:32px 16px;">
+          <tr>
+            <td align="center">
+              <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e3e6f0;            ">
+
+                <!-- HEADER -->
+                <tr>
+                  <td style="background:#0f1f3d;padding:32px 32px 28px;position:relative;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <table cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+                            <tr>
+                              <td style="background:rgba(55,138,221,0.2);border-radius:6px;width:28px;height:28px;text-align:center;            vertical-align:middle;">
+                                <span style="font-size:14px;">&#128274;</span>
+                              </td>
+                              <td style="padding-left:8px;">
+                                <span style="font-size:11px;color:#378add;letter-spacing:0.06em;font-weight:600;text-transform:uppercase;">Blog             Platform</span>
+                              </td>
+                            </tr>
+                          </table>
+                          <p style="margin:0 0 4px;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">Welcome aboard</p>
+                          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.5);">Your account is live and ready to use</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- BODY -->
+                <tr>
+                  <td style="padding:28px 32px 0;">
+                    <p style="margin:0 0 6px;font-size:14px;color:#6b7280;">Hello,</p>
+                    <p style="margin:0 0 24px;font-size:14px;line-height:1.65;color:#6b7280;">
+                      Your Blog Managing App account has been created. Use the credentials below to sign in for the first time.
+                    </p>
+
+                    <!-- CREDENTIALS CARD -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e3e6f0;border-radius:10px;overflow:hidden;            margin-bottom:20px;">
+                      <tr>
+                        <td style="background:#f8f9fc;padding:10px 16px;border-bottom:1px solid #e3e6f0;">
+                          <span style="font-size:11px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Login credentials</            span>
+                        </td>
+                      </tr>
+                      <!-- Email row -->
+                      <tr>
+                        <td style="padding:14px 16px;border-bottom:1px solid #f1f3f9;">
+                          <table cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="background:#eff6ff;border-radius:6px;width:28px;height:28px;text-align:center;vertical-align:middle;            font-size:13px;">&#128140;</td>
+                              <td style="padding-left:12px;">
+                                <p style="margin:0;font-size:11px;color:#9ca3af;">Email address</p>
+                                <p style="margin:0;font-size:13px;font-weight:600;color:#111827;font-family:'Courier New',monospace;">${email}</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <!-- Password row -->
+                      <tr>
+                        <td style="padding:14px 16px;">
+                          <table cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="background:#f0fdf4;border-radius:6px;width:28px;height:28px;text-align:center;vertical-align:middle;            font-size:13px;">&#128274;</td>
+                              <td style="padding-left:12px;">
+                                <p style="margin:0;font-size:11px;color:#9ca3af;">Temporary password</p>
+                                <p style="margin:0;font-size:13px;font-weight:600;color:#111827;font-family:'Courier New',monospace;">${password}</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- WARNING CALLOUT -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;            margin-bottom:24px;">
+                      <tr>
+                        <td style="padding:12px 14px;">
+                          <table cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="vertical-align:top;padding-right:10px;font-size:15px;">&#9888;&#65039;</td>
+                              <td>
+                                <p style="margin:0;font-size:12px;line-height:1.6;color:#92400e;">
+                                  Change your password immediately after first login. This temporary password will expire in <strong>24 hours</strong>.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA BUTTON -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${loginUrl}"
+                              style="display:inline-block;background:#0f1f3d;color:#ffffff;padding:12px 32px;border-radius:8px;text-decoration:none;            font-size:13px;font-weight:600;letter-spacing:0.02em;">
+                            Sign in to your account
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="text-align:center;font-size:11px;color:#9ca3af;margin:0 0 4px;">or copy this link</p>
+                    <p style="text-align:center;font-size:11px;color:#2563eb;margin:0 0 28px;font-family:'Courier New',monospace;word-break:break-all;            ">${loginUrl}</p>
+                  </td>
+                </tr>
+
+                <!-- DIVIDER -->
+                <tr>
+                  <td style="padding:0 32px;">
+                    <div style="height:1px;background:#f1f3f9;"></div>
+                  </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                  <td style="padding:18px 32px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+                            Not expecting this email?<br>Contact your administrator.
+                          </p>
+                        </td>
+                        <td align="right">
+                          <p style="margin:0;font-size:11px;color:#9ca3af;text-align:right;line-height:1.6;">
+                            &copy; 2026 EMS<br>All rights reserved.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+        </body>
+        </html>`,
+      });
+
       // req.flash("success", "Admin registered. Please login.");
       // res.redirect("/admin/login");
       return res.status(201).json({
         success: true,
-        message: "writer created successfully",
+        message:
+          "writer created successfully & login credentials send to the respected email",
       });
     } catch (err) {
       // req.flash("error", err.message);
@@ -663,7 +830,7 @@ class adminController {
       }
 
       // 2. get admin from DB
-      const admin = await AdminModel.findById(req.admin.userId);
+      const admin = await AdminModel.findById(req.admin._id);
 
       if (!admin) {
         return res.status(404).json({
@@ -708,7 +875,7 @@ class adminController {
     try {
       const { blogId } = req.params;
 
-      if (!req.admin || !req.admin.userId) {
+      if (!req.admin || !req.admin._id) {
         return res.status(401).json({ msg: "Unauthorized" });
       }
 
@@ -744,7 +911,7 @@ class adminController {
       }
 
       blog.status = "published";
-      blog.approvedBy = req.admin.userId;
+      blog.approvedBy = req.admin._id;
       blog.publishedAt = new Date();
 
       await blog.save();
@@ -767,7 +934,7 @@ class adminController {
     try {
       const { blogId } = req.params;
 
-      if (!req.admin || !req.admin.userId) {
+      if (!req.admin || !req.admin._id) {
         return res.status(401).json({ msg: "Unauthorized" });
       }
 
@@ -790,7 +957,7 @@ class adminController {
       }
 
       blog.status = "rejected";
-      blog.approvedBy = req.admin.userId; // who rejected it
+      blog.approvedBy = req.admin._id; // who rejected it
 
       await blog.save();
 

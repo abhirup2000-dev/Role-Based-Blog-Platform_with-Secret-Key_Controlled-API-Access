@@ -13,7 +13,7 @@ router.post('/create-writer', adminAuthCheck, adminController.writerRegister)
 
 
 //admin update password(API)
-router.post('/update-password', adminAuthCheck, adminController.adminPasswordUpdate)
+router.post('/password-update', adminAuthCheck, adminController.adminPasswordUpdate)
 
 //blog approval by admin(API)
 router.post("/blog/approval/:blogId", adminAuthCheck, verifyAdminApiKey, adminController.approveAndPublishBlog);

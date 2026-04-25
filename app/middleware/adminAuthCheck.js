@@ -32,7 +32,7 @@ const Adminmodel = require("../models/admin");
 //   try {
 //     const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET_KEY);
 
-//     const user = await Admin.findById(decodedRefresh.userId);
+//     const user = await Adminmodel.findById(decodedRefresh.userId);
 
 //     //  Token mismatch (VERY IMPORTANT SECURITY CHECK)
 //     if (!user || !bcrypt.compare(refreshToken, user.refreshToken)) {
