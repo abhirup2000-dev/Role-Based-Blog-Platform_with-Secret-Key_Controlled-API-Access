@@ -61,7 +61,7 @@ class writerController {
           role: user.role,
         },
         process.env.JWT_SECRET_KEY,
-        { expiresIn: "5m" },
+        { expiresIn: "15m" },
       );
 
       // const writerRefreshToken = jwt.sign(

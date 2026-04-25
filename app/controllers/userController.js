@@ -89,14 +89,14 @@ class userController {
           email: user.email,
         },
         process.env.JWT_SECRET_KEY,
-        { expiresIn: "5m" },
+        { expiresIn: "15m" },
       );
 
-      const userRefreshToken = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_REFRESH_SECRET_KEY,
-        { expiresIn: "7d" },
-      );
+      // const userRefreshToken = jwt.sign(
+      //   { userId: user._id },
+      //   process.env.JWT_REFRESH_SECRET_KEY,
+      //   { expiresIn: "7d" },
+      // );
 
       // // 5. Save refresh token
       // user.refreshToken = refreshToken;

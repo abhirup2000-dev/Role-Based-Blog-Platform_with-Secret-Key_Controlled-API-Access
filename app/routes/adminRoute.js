@@ -6,17 +6,7 @@ const {adminAuthCheck, verifyAdminApiKey} = require('../middleware/adminAuthChec
 
 router.post('/register', adminController.adminRegister)
 router.post('/login', adminController.adminLogin)
-router.post('/logout', adminController.adminLogin)
-
-//blog operations
-// router.get('/blog', adminAuthCheck, verifyAdminApiKey, adminController.getAllBlogs) 
-// router.post('/create-blog', adminAuthCheck, verifyAdminApiKey, adminController.createBlog) 
-// router.put('/update-blog/:id', adminAuthCheck, verifyAdminApiKey, adminController.updateBlog) 
-// router.delete('/delete-blog/:id', adminAuthCheck, verifyAdminApiKey, adminController.deleteBlog) 
-
-//admin loginpage && admin registerpage && admin dashboardpage && update password page && writer registerpage 
-// router.get('/dashboard', adminAuthCheck, adminController.dashboard)
-
+// router.post('/logout', adminController.adminLogout)
 
 //create writer(API)
 router.post('/create-writer', adminAuthCheck, adminController.writerRegister) 

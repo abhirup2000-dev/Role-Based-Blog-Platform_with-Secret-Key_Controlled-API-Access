@@ -5,6 +5,7 @@ const userAuthCheck = require('../middleware/userAuthCheck')
 
 router.post('/register', userController.userRegister)
 router.post('/login', userController.userLogin)
+// router.post('/logout', userController.userLogout)
 
 //user login page and register page
 

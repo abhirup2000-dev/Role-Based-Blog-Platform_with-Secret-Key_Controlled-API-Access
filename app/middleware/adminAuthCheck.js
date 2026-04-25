@@ -35,7 +35,7 @@ const Adminmodel = require("../models/admin");
 //     const user = await Admin.findById(decodedRefresh.userId);
 
 //     //  Token mismatch (VERY IMPORTANT SECURITY CHECK)
-//     if (!user || user.refreshToken !== refreshToken) {
+//     if (!user || !bcrypt.compare(refreshToken, user.refreshToken)) {
 //       res.clearCookie("adminAccessToken");
 //       res.clearCookie("adminRefreshToken");
 //       return res.redirect("/admin/login");
@@ -86,8 +86,12 @@ const adminAuthCheck = async (req, res, next) => {
 
     const admin = await Adminmodel.findById(decoded.userId);
 
-    if (!admin) {
-      return res.status(401).json({ msg: "Admin not found" });
+    //  Token mismatch (VERY IMPORTANT SECURITY CHECK)
+    if (!admin || !bcrypt.compare(token, admin.refreshToken)) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid token && unauthorized access"
+      })
     }
 
     req.admin = admin
@@ -101,7 +105,7 @@ const adminAuthCheck = async (req, res, next) => {
 //auto gen api(generate at login time saved in DB) key verification
 const verifyAdminApiKey = async (req, res, next) => {
   try {
-    const key = req.headers["x-api-key"]?.trim();
+    const key = req.headers["x-secret-key"]?.trim();
 
     if (!key) {
       return res.status(401).json({ msg: "API key required" });

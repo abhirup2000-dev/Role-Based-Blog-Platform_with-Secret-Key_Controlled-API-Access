@@ -103,33 +103,9 @@ const writerAuthCheck = async (req, res, next) => {
   }
 };
 
-//api key verify from env file static apikey
-// const verifyWriterApiKey = async (req, res, next) => {
-//   try {
-//     const apiKey = req.writer?.apiKey;
-
-//     if (!apiKey) {
-//       return res.status(401).json({ msg: "API key missing" });
-//     }
-
-//     const isMatch = await bcrypt.compare(
-//       process.env.WRITER_BLOG_API_SECRET_KEY,
-//       apiKey,
-//     );
-
-//     if (!isMatch) {
-//       return res.status(403).json({ msg: "Invalid API key" });
-//     }
-
-//     next();
-//   } catch (err) {
-//     return res.status(500).json({ msg: "Server error", error: err.message });
-//   }
-// };
-
 const verifyWriterApiKey = async (req, res, next) => {
   try {
-    const key = req.headers["x-api-key"]?.trim();
+    const key = req.headers["x-secret-key"]?.trim();
 
     if (!key) {
       return res.status(401).json({ msg: "API key required" });
@@ -139,7 +115,7 @@ const verifyWriterApiKey = async (req, res, next) => {
       return res.status(403).json({ msg: "Unauthorized access" });
     }
 
-    const writer = await WriterModel.findById(req.writer._id)
+    const writer = await WriterModel.findById(req.writer._id);
 
     const isMatch = await bcrypt.compare(key, writer.apiKey);
 

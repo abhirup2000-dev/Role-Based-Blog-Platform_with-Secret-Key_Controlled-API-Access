@@ -104,20 +104,20 @@ class adminController {
           role: user.role,
         },
         process.env.JWT_SECRET_KEY,
-        { expiresIn: "5m" },
+        { expiresIn: "15m" },
       );
 
-      // const adminRefreshToken = jwt.sign(
-      //   { userId: user._id },
-      //   process.env.JWT_REFRESH_SECRET_KEY,
-      //   { expiresIn: "7d" },
-      // );
+      const adminRefreshToken = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_REFRESH_SECRET_KEY,
+        { expiresIn: "7d" },
+      );
 
-      // // 5. Save refresh token
-      // user.refreshToken = refreshToken;
-      // await user.save();
+      //Save refresh token
+      user.refreshToken = await bcrypt.hash(adminRefreshToken, 10);
+      await user.save();
 
-      // // 6. Cookies
+      // //Cookies
       // res.cookie("adminAccessToken", accessToken, {
       //   httpOnly: true,
       //   secure: process.env.NODE_ENV === "production",
@@ -647,7 +647,7 @@ class adminController {
     try {
       const { currentPassword, newPassword } = req.body;
 
-      // 1. validate input
+      //validate input
       if (!currentPassword || !newPassword) {
         return res.status(400).json({
           success: false,
@@ -814,10 +814,11 @@ class adminController {
   //     const refreshToken = req.cookies.adminRefreshToken;
 
   //     if (refreshToken) {
-  //       const admin = await Admin.findOne({ refreshToken });
+  //       const admin = await AdminModel.findOne({ refreshToken });
 
   //       if (admin) {
   //         admin.refreshToken = null;
+  //         admin.apiKey = null;
   //         await admin.save();
   //       }
   //     }
@@ -833,8 +834,6 @@ class adminController {
   //     res.redirect("/admin/login");
   //   }
   // }
-
-  ///blog managing
 }
 
 module.exports = new adminController();
