@@ -2,6 +2,8 @@ const jwt = require("jsonwebtoken");
 
 const bcrypt = require("bcryptjs");
 
+const cloudinary = require("cloudinary").v2;
+
 const AdminModel = require("../models/admin");
 const WriterModel = require("../models/writer");
 const BlogModel = require("../models/blog");
@@ -18,12 +20,12 @@ class adminController {
       const { adminName, email, password, phone } = req.body;
       const exists = await AdminModel.findOne({ email });
       if (exists) {
-        // req.flash("error", "Email already registered");
-        // return res.redirect("/admin/register");
-        return res.status(401).json({
-          success: false,
-          message: "Email already registered",
-        });
+        req.flash("error", "Email already registered");
+        return res.redirect("/admin/register-view");
+        // return res.status(401).json({
+        //   success: false,
+        //   message: "Email already registered",
+        // });
       }
 
       const hashed = await bcrypt.hash(password, 10);
@@ -34,62 +36,50 @@ class adminController {
         password: hashed,
         phone,
       });
-      // req.flash("success", "Admin registered. Please login.");
-      // res.redirect("/admin/login");
-      return res.status(201).json({
-        success: true,
-        message: "admin created successfully",
-        apiKey: ADMIN_BLOG_API_SECRET_KEY,
-      });
+      req.flash("success", "Admin registered. Please login.");
+      res.redirect("/admin/login-view");
+      // return res.status(201).json({
+      //   success: true,
+      //   message: "admin created successfully",
+      //   apiKey: ADMIN_BLOG_API_SECRET_KEY,
+      // });
     } catch (err) {
-      // req.flash("error", err.message);
-      // res.redirect("/admin/register");
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      req.flash("error", err.message);
+      console.log(err);
+      res.redirect("/admin/register-view");
+      //   return res.status(500).json({
+      //     success: false,
+      //     message: err.message,
+      //   });
     }
   }
 
   async adminLogin(req, res) {
     try {
+      console.log("admin:", req.admin);
       const { email, password } = req.body;
 
-      // 1. Validate
+      //Validate
       if (!email || !password) {
-        // req.flash("error", "All input is required");
-        // return res.redirect("/admin/login");
-
-        return res.status(400).json({
-          success: false,
-          message: "All input is required",
-        });
+        req.flash("error", "All input is required");
+        return res.redirect("/admin/login-view");
       }
 
       //Find user
       const user = await AdminModel.findOne({ email });
 
       if (!user || user.role !== "admin") {
-        // req.flash("error", "Invalid email or password");
-        // return res.redirect("/admin/login");
-
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        req.flash("error", "Invalid email or password");
+        return res.redirect("/admin/login-view");
       }
 
       //Compare password
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
-        // req.flash("error", "Invalid email or password");
-        // return res.redirect("/admin/login");
-
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        req.flash("error", "Invalid email or password");
+        console.log("error", "Invalid email or password");
+        return res.redirect("/admin/login-view");
       }
 
       // generate new key
@@ -102,12 +92,14 @@ class adminController {
       // Tokens
       const adminAccessToken = jwt.sign(
         {
+          adminName: user.adminName,
           userId: user._id,
           email: user.email,
           role: user.role,
+          apiKey: user.apiKey,
         },
         process.env.JWT_SECRET_KEY,
-        { expiresIn: "15m" },
+        { expiresIn: "1m" },
       );
 
       const adminRefreshToken = jwt.sign(
@@ -117,49 +109,42 @@ class adminController {
       );
 
       //Save refresh token
-      user.refreshToken = await bcrypt.hash(adminRefreshToken, 10);
+      user.refreshToken = adminRefreshToken;
       await user.save();
 
-      // //Cookies
-      // res.cookie("adminAccessToken", accessToken, {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: "Strict",
-      //   maxAge: 1 * 60 * 1000,
-      // });
-
-      // res.cookie("adminRefreshToken", refreshToken, {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: "Strict",
-      //   maxAge: 7 * 24 * 60 * 60 * 1000,
-      // });
-
-      // req.flash("success", "Admin logged in successfully");
-      // return res.redirect("/admin/dashboard");
-
-      return res.status(200).json({
-        success: true,
-        message: "Admin logged in successfully",
-        admin: {
-          userId: user._id,
-          userName: user.adminName,
-          role: user.role,
-          phone: user.phone,
-          apiKey: newApiKey,
-        },
-        token: adminAccessToken,
+      //Cookies
+      res.cookie("adminAccessToken", adminAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 1 * 60 * 1000,
       });
+
+      res.cookie("adminRefreshToken", adminRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.cookie("apiKey", newApiKey, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      });
+
+      req.flash(
+        "success",
+        "Logged in Successfully",
+        "Welcome to Admin Dashboard",
+      );
+      req.flash("success", "Welcome to Admin Dashboard");
+
+      return res.redirect("/admin/dashboard");
     } catch (error) {
       console.error("Admin Login Error:", error);
 
-      // req.flash("error", "Something went wrong");
-      // return res.redirect("/admin/login");
-
-      return res.status(500).json({
-        success: false,
-        message: "Server error",
-      });
+      req.flash("error", "Something went wrong");
+      return res.redirect("/admin/login-view");
     }
   }
 
@@ -169,12 +154,8 @@ class adminController {
       const { writerName, email } = req.body;
       const exists = await WriterModel.findOne({ email });
       if (exists) {
-        // req.flash("error", "Email already registered");
-        // return res.redirect("/admin/register");
-        return res.status(401).json({
-          success: false,
-          message: "Email already registered",
-        });
+        req.flash("error", "Email already registered");
+        return res.redirect("/admin/writers");
       }
 
       //random password generate
@@ -189,7 +170,7 @@ class adminController {
       });
 
       const baseUrl = req.protocol + "://" + req.get("host");
-      const loginUrl = baseUrl + "/writer/login/view";
+      const loginUrl = baseUrl + "/writer/login-view";
 
       //sending creentials to writer mail id
       await transporter.sendMail({
@@ -347,20 +328,14 @@ class adminController {
         </html>`,
       });
 
-      // req.flash("success", "Admin registered. Please login.");
-      // res.redirect("/admin/login");
-      return res.status(201).json({
-        success: true,
-        message:
-          "writer created successfully & login credentials send to the respected email",
-      });
+      req.flash(
+        "success",
+        "Admin registered. Credentials send to respected email Id, Please login.",
+      );
+      res.redirect("/admin/writers");
     } catch (err) {
-      // req.flash("error", err.message);
-      // res.redirect("/admin/register");
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      req.flash("error", err.message);
+      res.redirect("/admin/dashboard");
     }
   }
 
@@ -592,10 +567,9 @@ class adminController {
       const method = req.method;
 
       switch (method) {
-        //GET → get all blogs
+        // ✅ GET
         case "GET": {
           const blogs = await BlogModel.aggregate([
-            //join comments by users on blogs
             {
               $lookup: {
                 from: "comments",
@@ -627,7 +601,6 @@ class adminController {
                       user: {
                         _id: "$user._id",
                         userName: "$user.userName",
-                        email: "$user.email",
                       },
                     },
                   },
@@ -636,7 +609,6 @@ class adminController {
               },
             },
 
-            //join author(admin or writer)
             {
               $lookup: {
                 from: "admins",
@@ -653,6 +625,7 @@ class adminController {
                 as: "writerAuthor",
               },
             },
+
             {
               $addFields: {
                 author: {
@@ -661,140 +634,139 @@ class adminController {
                     then: {
                       _id: { $arrayElemAt: ["$writerAuthor._id", 0] },
                       name: { $arrayElemAt: ["$writerAuthor.writerName", 0] },
-                      role: { $arrayElemAt: ["$writerAuthor.role", 0] },
                     },
                     else: {
                       _id: { $arrayElemAt: ["$adminAuthor._id", 0] },
                       name: { $arrayElemAt: ["$adminAuthor.adminName", 0] },
-                      role: { $arrayElemAt: ["$adminAuthor.role", 0] },
                     },
                   },
                 },
-
                 totalComments: { $size: "$comments" },
                 totalLikes: { $size: { $ifNull: ["$likes", []] } },
               },
             },
-            {
-              $project: {
-                adminAuthor: 0,
-                writerAuthor: 0,
-              },
-            },
 
-            {
-              $project: {
-                authorInfo: 0,
-              },
-            },
-
-            //sort
+            { $project: { adminAuthor: 0, writerAuthor: 0 } },
             { $sort: { createdAt: -1 } },
           ]);
 
-          return res.status(200).json({
-            success: true,
-            count: blogs.length,
-            data: blogs,
+          return res.render("admin/blogs", {
+            title: "Blogs",
+            blogs,
+            success: req.flash("success"),
+            error: req.flash("error"),
           });
         }
 
-        //POST → create
+        // ✅ POST
         case "POST": {
           const { title, content, excerpt, category } = req.body;
 
-          if (!title || !content) {
-            return res.status(400).json({ msg: "Title & content required" });
+          if (!title || !content || !excerpt || !category) {
+            req.flash("error", "All fields are required");
+            return res.redirect("/admin/dashboard/blogs");
           }
 
-          if (!req.admin || !req.admin.userId) {
-            return res.status(401).json({ msg: "Unauthorized" });
+          if (!req.admin) {
+            return res.redirect("/admin/login-view");
           }
 
-          const blog = await BlogModel.create({
+          const admin = await AdminModel.findById(req.admin.userId);
+
+          console.log(admin);
+
+          await BlogModel.create({
             title,
             content,
             excerpt,
             category,
-            author: req.admin.userId,
+            author: admin._id,
             authorModel: "Admin",
-            status: "draft",
+            coverImage: req.file?.path,
+            publicId: req.file?.filename,
           });
 
-          return res.status(201).json({
-            success: true,
-            message: "Blog created successfully",
-            data: blog,
-          });
+          req.flash("success", "Blog created successfully");
+          return res.redirect("/admin/dashboard/blogs");
         }
 
-        //PUT → update
+        // ✅ PUT
         case "PUT": {
           const { id } = req.params;
-          const { title, content, excerpt, category, status } = req.body;
-
-          if (!id) {
-            return res.status(400).json({ msg: "Blog ID required" });
-          }
 
           const blog = await BlogModel.findById(id);
 
           if (!blog) {
-            return res.status(404).json({ msg: "Blog not found" });
+            req.flash("error", "Blog not found");
+            return res.redirect("/admin/dashboard/blogs");
           }
 
-          if (!req.admin || blog.author.toString() !== req.admin.userId) {
-            return res.status(403).json({ msg: "Not allowed to update" });
+          // OWNER CHECK (VERY IMPORTANT)
+          if (blog.author.toString() !== req.admin.userId.toString()) {
+            req.flash("error", "Unauthorized action");
+            return res.redirect("/admin/dashboard/blogs");
           }
+
+          // Only allow specific fields (avoid overwriting sensitive data)
+          const { title, content, excerpt, category } = req.body;
 
           if (title) blog.title = title;
           if (content) blog.content = content;
           if (excerpt) blog.excerpt = excerpt;
           if (category) blog.category = category;
-          if (status) blog.status = status;
+
+          // Handle image update
+          if (req.file) {
+            try {
+              if (blog.publicId) {
+                await cloudinary.uploader.destroy(blog.publicId);
+              }
+
+              blog.coverImage = req.file.path;
+              blog.publicId = req.file.filename;
+            } catch (err) {
+              console.log("Cloudinary error:", err.message);
+              req.flash("error", "Image upload failed");
+              return res.redirect("/admin/dashboard/blogs");
+            }
+          }
 
           await blog.save();
 
-          return res.status(200).json({
-            success: true,
-            message: "Blog updated",
-            data: blog,
-          });
+          req.flash("success", "Blog updated successfully");
+          return res.redirect("/admin/dashboard/blogs");
         }
 
-        //DELETE → delete
+        // ✅ DELETE
         case "DELETE": {
           const { id } = req.params;
-
-          if (!id) {
-            return res.status(400).json({ msg: "Blog ID required" });
-          }
-
           const blog = await BlogModel.findById(id);
 
           if (!blog) {
-            return res.status(404).json({ msg: "Blog not found" });
+            req.flash("error", "Blog not found");
+            return res.redirect("/admin/dashboard/blogs");
+          }
+
+          if (blog.publicId) {
+            await cloudinary.uploader.destroy(blog.publicId);
           }
 
           await BlogModel.findByIdAndDelete(id);
 
-          return res.status(200).json({
-            success: true,
-            message: "Blog deleted",
-          });
+          req.flash("success", "Blog deleted");
+          return res.redirect("/admin/dashboard/blogs");
         }
 
         default:
-          return res.status(405).json({
-            msg: `Method ${method} not allowed`,
-          });
+          return res.status(405).send("Method not allowed");
       }
     } catch (err) {
-      console.error("BLOG OPS ERROR:", err);
-      return res.status(500).json({
-        msg: "Something went wrong",
-        error: err.message,
-      });
+      console.log("BLOG ERROR FULL:", err);
+      console.log("MESSAGE:", err.message);
+      console.log("STACK:", err.stack);
+
+      req.flash("error", err.message || "Something went wrong");
+      return res.redirect("/admin/dashboard/blogs");
     }
   }
 
@@ -812,41 +784,34 @@ class adminController {
 
   async adminPasswordUpdate(req, res) {
     try {
+      console.log(req.admin);
       const { currentPassword, newPassword } = req.body;
 
       //validate input
       if (!currentPassword || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message: "All fields are required",
-        });
+        req.flash("error", "all password field are required");
+        return res.redirect("/admin/profile");
       }
 
       if (newPassword.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: "New password must be at least 6 characters",
-        });
+        req.flash("error", "New password must be at least 6 characters");
+        return res.redirect("/admin/profile");
       }
 
       // 2. get admin from DB
-      const admin = await AdminModel.findById(req.admin._id);
+      const admin = await AdminModel.findById(req.admin.userId);
 
       if (!admin) {
-        return res.status(404).json({
-          success: false,
-          message: "Admin not found",
-        });
+        req.flash("error", "Admin not found");
+        return res.redirect("/admin/login-view");
       }
 
       // 3. compare current password
       const isMatch = await bcrypt.compare(currentPassword, admin.password);
 
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Current password is incorrect",
-        });
+        req.flash("error", "Current password is incorrect");
+        return res.redirect("/admin/profile");
       }
 
       // 4. hash new password
@@ -856,17 +821,33 @@ class adminController {
       admin.password = hashedPassword;
       await admin.save();
 
-      return res.status(200).json({
-        success: true,
-        message: "Password updated successfully",
-      });
+      req.flash("success", "Password updated successfully");
+      return res.redirect("/admin/dashboard");
     } catch (err) {
-      console.error("PASSWORD UPDATE ERROR:", err);
+      req.flash("error", err.message);
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      res.redirect("/admin/profile");
+    }
+  }
+
+  // toggle active/inactive
+  async toggleWriterStatus(req, res) {
+    try {
+      const writer = await WriterModel.findById(req.params.id);
+
+      if (!writer) {
+        req.flash("error", "Writer not found");
+        return res.redirect("/admin/writers");
+      }
+
+      writer.isActive = !writer.isActive;
+      await writer.save();
+
+      req.flash("success", "Writer status updated");
+      return res.redirect("/admin/writers");
+    } catch (error) {
+      req.flash("error", "Something went wrong");
+      return res.redirect("/admin/writers");
     }
   }
 
@@ -875,7 +856,7 @@ class adminController {
     try {
       const { blogId } = req.params;
 
-      if (!req.admin || !req.admin._id) {
+      if (!req.admin || !req.admin.userId) {
         return res.status(401).json({ msg: "Unauthorized" });
       }
 
@@ -911,7 +892,7 @@ class adminController {
       }
 
       blog.status = "published";
-      blog.approvedBy = req.admin._id;
+      blog.approvedBy = req.admin.userId;
       blog.publishedAt = new Date();
 
       await blog.save();
@@ -934,7 +915,7 @@ class adminController {
     try {
       const { blogId } = req.params;
 
-      if (!req.admin || !req.admin._id) {
+      if (!req.admin || !req.admin.userId) {
         return res.status(401).json({ msg: "Unauthorized" });
       }
 
@@ -957,17 +938,15 @@ class adminController {
       }
 
       blog.status = "rejected";
-      blog.approvedBy = req.admin._id; // who rejected it
+      blog.approvedBy = req.admin.userId; // who rejected it
 
       await blog.save();
 
-      return res.status(200).json({
-        success: true,
-        message: "Blog rejected successfully",
-        data: blog,
-      });
+      req.flash("success", "Blog approved");
+
+      return res.redirect("/admin/dashboard/blogs");
     } catch (err) {
-      console.error("REJECT ERROR:", err);
+      req.flash("error", err.message);
       return res.status(500).json({
         msg: "Failed to reject blog",
         error: err.message,
@@ -976,31 +955,37 @@ class adminController {
   }
 
   //logout
-  // async adminLogout(req, res) {
-  //   try {
-  //     const refreshToken = req.cookies.adminRefreshToken;
+  async adminLogout(req, res) {
+    try {
+      const refreshToken = req.cookies.adminRefreshToken;
 
-  //     if (refreshToken) {
-  //       const admin = await AdminModel.findOne({ refreshToken });
+      console.log("TOKEN FROM COOKIE:", refreshToken);
 
-  //       if (admin) {
-  //         admin.refreshToken = null;
-  //         admin.apiKey = null;
-  //         await admin.save();
-  //       }
-  //     }
+      if (refreshToken) {
+        const admin = await AdminModel.findOne({ refreshToken });
 
-  //     res.clearCookie("adminAccessToken");
+        console.log("ADMIN FOUND:", admin);
 
-  //     res.clearCookie("adminRefreshToken");
+        if (admin) {
+          admin.refreshToken = null;
+          admin.apiKey = null;
+          await admin.save();
+          console.log("TOKENS CLEARED IN DB");
+        }
+      }
 
-  //     res.redirect("/admin/login");
-  //   } catch (error) {
-  //     console.error("Logout Error:", error);
+      res.clearCookie("adminAccessToken");
+      res.clearCookie("adminRefreshToken");
+      res.clearCookie("apiKey");
 
-  //     res.redirect("/admin/login");
-  //   }
-  // }
+      req.flash("success", "Logged out Successfully");
+      res.redirect("/admin/login-view");
+    } catch (error) {
+      console.log("LOGOUT ERROR:", error);
+      req.flash("error", error.message);
+      res.redirect("/admin/login-view");
+    }
+  }
 }
 
 module.exports = new adminController();

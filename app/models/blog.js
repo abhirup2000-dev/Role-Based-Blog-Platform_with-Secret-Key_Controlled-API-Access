@@ -32,6 +32,14 @@ const BlogSchema = new mongoose.Schema(
       ref: "Admin",
       default: null,
     },
+    coverImage:{
+      type: String,
+      default: "image.jpg"
+    },
+    publicId:{
+      type: String,
+      default: null
+    }
   },
   { timestamps: true, versionKey: false },
 );

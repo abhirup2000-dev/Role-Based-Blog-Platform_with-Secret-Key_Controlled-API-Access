@@ -1,11 +1,13 @@
 require('dotenv').config()
 const express = require('express')
-
+const path = require("path")
 const morgan = require('morgan')
 const helmet = require('helmet')
 const session = require('express-session')
 const flash = require("connect-flash");
 const cookieparser = require('cookie-parser')
+const methodOverride = require("method-override");
+
 const app = express()
 
 
@@ -18,6 +20,8 @@ app.use(express.urlencoded({extended:true}))
 
 app.set('view engine', 'ejs')
 app.set('views', 'views')
+
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use(morgan('dev'))
 app.use(
@@ -39,6 +43,14 @@ app.use(
 );
 app.use(flash())
 
+app.use(methodOverride("_method"));
+
+app.use((req, res, next) => {
+  res.locals.error = req.flash("error");
+  res.locals.success = req.flash("success");
+  next();
+});
+
 
 
 app.use(require('./app/routes/index'))
@@ -51,5 +63,5 @@ app.listen(port, (err)=>{
   if(err){
     console.log(`failed to start the server ${err} `)
   }
-  console.log(`Server running on port http:/localhost:${port}`)
+  console.log(`Server running on port http://localhost:${port}`)
 })

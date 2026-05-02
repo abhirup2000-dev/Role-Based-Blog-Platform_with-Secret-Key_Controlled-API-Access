@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 
+const rateLimit = require("../utils/rateLimiter")
+
 const {writerAuthCheck, verifyWriterApiKey} = require('../middleware/writerAuthCheck')
 
 const writerController = require('../controllers/writerController')
 
-router.post('/login', writerController.writerLogin)
+router.post('/login', rateLimit, writerController.writerLogin)
 // router.post('/logout', writerController.writerLogout)
 
 //update password

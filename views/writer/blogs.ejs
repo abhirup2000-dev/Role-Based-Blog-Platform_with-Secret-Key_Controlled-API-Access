@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> | BlogPlatform</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar">
+  <a href="/writer/dashboard" class="navbar-brand">✍️ Writer Panel</a>
+  <div class="navbar-nav">
+    <a href="/writer/dashboard" class="nav-link">Dashboard</a>
+    <a href="/writer/blogs" class="nav-link active">My Blogs</a>
+    <a href="/writer/logout" class="btn btn-ghost btn-sm">Logout</a>
+  </div>
+</nav>
+
+<div class="content-wrapper">
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">My Blogs</h1>
+        <p class="page-subtitle">Create and manage your blog posts</p>
+      </div>
+      <button onclick="openModal('createBlogModal')" class="btn btn-primary">+ New Blog</button>
+    </div>
+
+    <% if (error && error.length) { %><div class="alert alert-error" data-autodismiss><span>⚠️ <%= error %></span></div><% } %>
+    <% if (success && success.length) { %><div class="alert alert-success" data-autodismiss><span>✅ <%= success %></span></div><% } %>
+
+    <div class="alert alert-info mb-2" style="font-size:0.85rem">
+      <span>💡 Save as <strong>Draft</strong> to work on it later, or <strong>Submit for Review</strong> to send to admin for approval.</span>
+    </div>
+
+    <div class="card">
+      <div class="table-wrapper">
+        <table id="blogs-table">
+          <thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Likes</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="blogs-tbody">
+            <tr><td colspan="6" style="padding:2rem; text-align:center; color:var(--gray-400)">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Blog Modal -->
+<div class="modal-overlay" id="createBlogModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Create New Blog</h3>
+      <button class="modal-close" onclick="closeModal('createBlogModal')">✕</button>
+    </div>
+    <form id="createBlogForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" name="title" class="form-control" placeholder="Blog title" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Excerpt</label>
+          <input type="text" name="excerpt" class="form-control" placeholder="Short description (optional)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-control">
+            <option value="">— Select category —</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat._id %>"><%= cat.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content *</label>
+          <textarea name="content" class="form-control" rows="10" placeholder="Write your blog content here..." required style="min-height:220px"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="closeModal('createBlogModal')" class="btn btn-ghost">Cancel</button>
+        <button type="submit" name="action" value="draft" class="btn btn-ghost" onclick="setSubmit(false)">💾 Save Draft</button>
+        <button type="submit" name="action" value="submit" class="btn btn-primary" onclick="setSubmit(true)">🚀 Submit for Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Blog Modal -->
+<div class="modal-overlay" id="editBlogModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Blog</h3>
+      <button class="modal-close" onclick="closeModal('editBlogModal')">✕</button>
+    </div>
+    <form id="editBlogForm">
+      <input type="hidden" id="editBlogId">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Title *</label>
+          <input type="text" id="editTitle" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Excerpt</label>
+          <input type="text" id="editExcerpt" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="editCategory" class="form-control">
+            <option value="">— Select category —</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat._id %>"><%= cat.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content *</label>
+          <textarea id="editContent" class="form-control" style="min-height:220px" required></textarea>
+        </div>
+        <div id="editStatusInfo" class="alert alert-info" style="font-size:0.8rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="closeModal('editBlogModal')" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-outline" onclick="setEditSubmit(false)">💾 Save Draft</button>
+        <button type="button" class="btn btn-primary" id="editSubmitBtn" onclick="setEditSubmit(true)">🚀 Submit for Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="ws-toast"></div>
+<script src="/js/app.js"></script>
+<script>
+  const SECRET_KEY = '<%= process.env.BLOG_API_SECRET_KEY || "" %>';
+  let shouldSubmit = false;
+  let shouldEditSubmit = false;
+
+  function setSubmit(v) { shouldSubmit = v; }
+  function setEditSubmit(v) { shouldEditSubmit = v; if (v) document.getElementById('editBlogForm').dispatchEvent(new Event('submit', {cancelable:true, bubbles:true})); }
+
+  initWebSocketNotifications('<%= user.id %>', 'writer');
+
+  const headers = { 'Content-Type': 'application/json', 'x-secret-key': SECRET_KEY };
+
+  async function loadBlogs(page = 1) {
+    const res = await fetch(`/writer/api/blogs?page=${page}&limit=10`, { headers });
+    const data = await res.json();
+    if (!data.success) { showToast('Failed to load blogs'); return; }
+    const tbody = document.getElementById('blogs-tbody');
+    if (!data.data.length) { tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem; text-align:center; color:var(--gray-500)">No blogs yet. Create your first blog!</td></tr>'; return; }
+    tbody.innerHTML = data.data.map(b => `
+      <tr>
+        <td><span class="truncate" style="max-width:220px; display:block">${b.title}</span></td>
+        <td class="text-sm">${b.category ? b.category.name : '—'}</td>
+        <td><span class="badge ${b.status==='published'?'badge-success':b.status==='pending'?'badge-warning':'badge-gray'}">${b.status}</span></td>
+        <td class="text-sm">❤️ ${b.likes ? b.likes.length : 0}</td>
+        <td class="text-sm text-muted">${new Date(b.createdAt).toLocaleDateString()}</td>
+        <td style="display:flex;gap:.35rem;flex-wrap:wrap">
+          ${b.status !== 'published' ? `<button onclick="openEditModal(${JSON.stringify(b).replace(/"/g,'&quot;')})" class="btn btn-outline btn-sm">Edit</button>` : ''}
+          <button onclick="deleteBlog('${b._id}')" class="btn btn-danger btn-sm">Delete</button>
+        </td>
+      </tr>`).join('');
+    // Pagination
+    const pag = document.getElementById('pagination');
+    if (data.pages <= 1) { pag.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 1; i <= data.pages; i++) html += `<a class="page-btn ${i===data.page?'active':''}" onclick="loadBlogs(${i})">${i}</a>`;
+    pag.innerHTML = html;
+  }
+
+  function openEditModal(blog) {
+    document.getElementById('editBlogId').value = blog._id;
+    document.getElementById('editTitle').value = blog.title;
+    document.getElementById('editExcerpt').value = blog.excerpt || '';
+    document.getElementById('editContent').value = blog.content;
+    if (blog.category) document.getElementById('editCategory').value = blog.category._id || blog.category;
+    const info = document.getElementById('editStatusInfo');
+    info.textContent = blog.status === 'pending' ? '⏳ This blog is awaiting admin approval.' : blog.status === 'published' ? '✅ This blog is published.' : '📝 This is a draft.';
+    const submitBtn = document.getElementById('editSubmitBtn');
+    submitBtn.style.display = blog.status === 'draft' ? 'inline-flex' : 'none';
+    openModal('editBlogModal');
+  }
+
+  async function deleteBlog(id) {
+    if (!confirm('Delete this blog?')) return;
+    const res = await fetch(`/writer/api/blogs/${id}`, { method: 'DELETE', headers });
+    const data = await res.json();
+    if (data.success) { showToast('🗑️ Blog deleted'); loadBlogs(); }
+    else showToast('❌ ' + data.message);
+  }
+
+  document.getElementById('createBlogForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = Object.fromEntries(fd.entries());
+    body.submit = shouldSubmit ? 'true' : 'false';
+    const res = await fetch('/writer/api/blogs', { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (data.success) { showToast('✅ ' + data.message); closeModal('createBlogModal'); e.target.reset(); loadBlogs(); }
+    else showToast('❌ ' + data.message);
+  });
+
+  document.getElementById('editBlogForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editBlogId').value;
+    const body = { title: document.getElementById('editTitle').value, excerpt: document.getElementById('editExcerpt').value, content: document.getElementById('editContent').value, category: document.getElementById('editCategory').value, submit: shouldEditSubmit ? 'true' : 'false' };
+    const res = await fetch(`/writer/api/blogs/${id}`, { method: 'PUT', headers, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (data.success) { showToast('✅ ' + data.message); closeModal('editBlogModal'); loadBlogs(); }
+    else showToast('❌ ' + data.message);
+    shouldEditSubmit = false;
+  });
+
+  loadBlogs();
+</script>
+</body>
+</html>

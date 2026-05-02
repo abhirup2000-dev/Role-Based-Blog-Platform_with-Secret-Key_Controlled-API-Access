@@ -10,12 +10,8 @@ class userController {
       const { userName, email, password } = req.body;
       const exists = await UserModel.findOne({ email });
       if (exists) {
-        // req.flash("error", "Email already registered");
-        // return res.redirect("/admin/register");
-        return res.status(401).json({
-          success: false,
-          message: "Email already registered",
-        });
+        req.flash("error", "Email already registered");
+        return res.redirect("/user/register-view");
       }
 
       const hashed = await bcrypt.hash(password, 10);
@@ -24,19 +20,11 @@ class userController {
         email,
         password: hashed,
       });
-      // req.flash("success", "Admin registered. Please login.");
-      // res.redirect("/admin/login");
-      return res.status(201).json({
-        success: true,
-        message: "user created successfully",
-      });
+      req.flash("success", "Admin registered. Please login.");
+      res.redirect("/user/login-view");
     } catch (err) {
-      // req.flash("error", err.message);
-      // res.redirect("/admin/register");
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      req.flash("error", err.message);
+      res.redirect("/user/register-view");
     }
   }
 
@@ -46,100 +34,70 @@ class userController {
 
       // 1. Validate
       if (!email || !password) {
-        // req.flash("error", "All input is required");
-        // return res.redirect("/admin/login");
-
-        return res.status(400).json({
-          success: false,
-          message: "All input is required",
-        });
+        req.flash("error", "All input is required");
+        return res.redirect("/user/login-view");
       }
 
       // 2. Find user
       const user = await UserModel.findOne({ email });
 
       if (!user || user.role !== "user") {
-        // req.flash("error", "Invalid email or password");
-        // return res.redirect("/admin/login");
-
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        req.flash("error", "Invalid email or password");
+        return res.redirect("/user/login-view");
       }
 
-      // 3. Compare password
+      // Compare password
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
-        // req.flash("error", "Invalid email or password");
-        // return res.redirect("/admin/login");
-
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        req.flash("error", "Invalid email or password");
+        return res.redirect("/user/login-view");
       }
 
-      // 4. Tokens
+      // Tokens
       const userAccessToken = jwt.sign(
         {
           userId: user._id,
           userName: user.userName,
           email: user.email,
+          isActive: user.isActive,
         },
         process.env.JWT_SECRET_KEY,
-        { expiresIn: "15m" },
+        { expiresIn: "1m" },
       );
 
-      // const userRefreshToken = jwt.sign(
-      //   { userId: user._id },
-      //   process.env.JWT_REFRESH_SECRET_KEY,
-      //   { expiresIn: "7d" },
-      // );
+      const userRefreshToken = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_REFRESH_SECRET_KEY,
+        { expiresIn: "7d" },
+      );
 
-      // // 5. Save refresh token
-      // user.refreshToken = refreshToken;
-      // await user.save();
+      // Save refresh token
+      user.refreshToken = userRefreshToken;
+      await user.save();
 
-      // // 6. Cookies
-      // res.cookie("adminAccessToken", accessToken, {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: "Strict",
-      //   maxAge: 1 * 60 * 1000,
-      // });
-
-      // res.cookie("adminRefreshToken", refreshToken, {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: "Strict",
-      //   maxAge: 7 * 24 * 60 * 60 * 1000,
-      // });
-
-      // req.flash("success", "Admin logged in successfully");
-      // return res.redirect("/admin/dashboard");
-
-      return res.status(200).json({
-        success: true,
-        message: "User logged in successfully",
-        user: {
-          userId: user._id,
-          userName: user.userName,
-          role: user.role,
-        },
-        token: userAccessToken,
+      // Cookies
+      res.cookie("userAccessToken", userAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 1 * 60 * 1000,
       });
+
+      res.cookie("userRefreshToken", userRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      req.flash("success", "User logged in successfully");
+      return res.redirect("/user/home");
     } catch (error) {
       console.error("Admin Login Error:", error);
 
-      // req.flash("error", "Something went wrong");
-      // return res.redirect("/admin/login");
-
-      return res.status(500).json({
-        success: false,
-        message: "Server error",
-      });
+      req.flash("error", "Something went wrong");
+      return res.redirect("/user/login-view");
     }
   }
 
@@ -152,10 +110,8 @@ class userController {
       const blog = await BlogModel.findById(blogId);
 
       if (!blog) {
-        return res.status(404).json({
-          success: false,
-          message: "Blog not found",
-        });
+        req.flash("error", "No blog found");
+        return res.redirect("/user/home");
       }
 
       const index = blog.likes.findIndex((id) => id.toString() === userId);
@@ -170,18 +126,13 @@ class userController {
 
       await blog.save();
 
-      return res.status(200).json({
-        success: true,
-        message: index > -1 ? "Blog unliked" : "Blog liked",
-        totalLikes: blog.likes.length,
-      });
+      req.flash("success", "Blog Liked");
+      return res.redirect(`/user/view-blog/${blogId}`);
     } catch (err) {
       console.error("LIKE ERROR:", err);
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      req.flash("error", "Something went Wrong");
+      return res.redirect("/user/home");
     }
   }
 
@@ -191,40 +142,114 @@ class userController {
       const { content } = req.body;
       const userId = req.user.userId;
 
-      if (!content) {
-        return res.status(400).json({
-          success: false,
-          message: "Comment content required",
-        });
+      console.log("USER", req.user);
+
+      if (!content || content.trim() === "") {
+        req.flash("error", "Comment cannot be empty");
+        return res.redirect(`/user/view-blog/${blogId}`);
       }
 
       const blog = await BlogModel.findById(blogId);
 
       if (!blog) {
-        return res.status(404).json({
-          success: false,
-          message: "Blog not found",
-        });
+        req.flash("error", "Blog not found");
+        return res.redirect(`/user/home`);
       }
 
-      const comment = await CommentModel.create({
+      await CommentModel.create({
         blog: blogId,
         user: userId,
-        content,
+        content: content.trim(),
       });
 
-      return res.status(201).json({
-        success: true,
-        message: "Comment added",
-        data: comment,
-      });
+      req.flash("success", "Comment added successfully");
+      return res.redirect(`/user/view-blog/${blogId}`);
     } catch (err) {
       console.error("COMMENT ERROR:", err);
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
+      req.flash("error", "Something went wrong while adding comment");
+      return res.redirect(`/user/home`);
+    }
+  }
+
+  async userPasswordUpdate(req, res) {
+    try {
+      console.log(req.user);
+      const { currentPassword, newPassword } = req.body;
+
+      //validate input
+      if (!currentPassword || !newPassword) {
+        req.flash("error", "all password field are required");
+        return res.redirect("/user/profile");
+      }
+
+      if (newPassword.length < 6) {
+        req.flash("error", "New password must be at least 6 characters");
+        return res.redirect("/user/profile");
+      }
+
+      // 2. get admin from DB
+      const user = await UserModel.findById(req.user.userId);
+
+      if (!user) {
+        req.flash("error", "User not found");
+        return res.redirect("/user/login-view");
+      }
+
+      // 3. compare current password
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+      if (!isMatch) {
+        req.flash("error", "Current password is incorrect");
+        return res.redirect("/user/profile");
+      }
+
+      // 4. hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // 5. update password
+      user.password = hashedPassword;
+      await user.save();
+
+      req.flash("success", "Password updated successfully");
+      return res.redirect("/user/home");
+    } catch (err) {
+      req.flash("error", err.message);
+
+      res.redirect("/user/profile");
+    }
+  }
+
+  //logout
+  async userLogout(req, res) {
+    try {
+      const refreshToken = req.cookies.userRefreshToken;
+
+      console.log("TOKEN FROM COOKIE:", refreshToken);
+
+      if (refreshToken) {
+        const user = await UserModel.findOne({ refreshToken });
+
+        console.log("USER FOUND:", user);
+
+        if (user) {
+          user.refreshToken = null;
+          user.apiKey = null;
+          await user.save();
+          console.log("TOKENS CLEARED IN DB");
+        }
+      }
+
+      res.clearCookie("userAccessToken");
+      res.clearCookie("userRefreshToken");
+      res.clearCookie("apiKey");
+
+      req.flash("success", "Logged out Successfully");
+      res.redirect("/user/login-view");
+    } catch (error) {
+      console.log("LOGOUT ERROR:", error.message);
+      req.flash("error", error.message);
+      res.redirect("/user/login-view");
     }
   }
 }

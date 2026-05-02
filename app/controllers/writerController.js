@@ -24,13 +24,18 @@ class writerController {
       const user = await WriterModel.findOne({ email });
 
       if (!user || user.role !== "writer") {
-        // req.flash("error", "Invalid email or password");
-        // return res.redirect("/admin/login");
+        req.flash("error", "Invalid email or password");
+        // return res.redirect("/writer/login-view");
 
         return res.status(401).json({
           success: false,
           message: "Invalid credentials",
         });
+      }
+
+      if(user.isActive === false){
+        req.flash("error", "user not active contact admin");
+        // return res.redirect("/writer/login-view");
       }
 
       // 3. Compare password
