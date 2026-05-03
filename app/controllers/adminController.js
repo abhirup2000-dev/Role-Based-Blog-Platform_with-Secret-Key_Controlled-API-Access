@@ -69,7 +69,7 @@ class adminController {
       const user = await AdminModel.findOne({ email });
 
       if (!user || user.role !== "admin") {
-        req.flash("error", "Invalid email or password");
+        req.flash("error", "unauthorized access, please make sure you are login as ADMIN");
         return res.redirect("/admin/login-view");
       }
 

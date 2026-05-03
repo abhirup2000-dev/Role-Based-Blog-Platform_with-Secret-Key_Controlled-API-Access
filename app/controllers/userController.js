@@ -42,7 +42,7 @@ class userController {
       const user = await UserModel.findOne({ email });
 
       if (!user || user.role !== "user") {
-        req.flash("error", "Invalid email or password");
+        req.flash("error", "USER access only");
         return res.redirect("/user/login-view");
       }
 

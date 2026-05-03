@@ -440,7 +440,7 @@ class viewController {
   async userprofile(req, res) {
     try {
       const user = await UserModel.findById(req.user.userId);
-      console.log("user", user)
+      console.log("user", user);
       return res.render("user/profile", {
         title: "User Profile",
         user,
@@ -584,6 +584,293 @@ class viewController {
       console.log("USER BLOG VIEW ERROR:", err);
       req.flash("error", "Server error");
       return res.redirect("/user/home");
+    }
+  }
+
+  //WRITER pages
+  async writerLoginPage(req, res) {
+    return res.render("writer/login", {
+      title: "Writer Login Page",
+    });
+  }
+
+  async writerprofile(req, res) {
+    try {
+      const writer = await WriterModel.findById(req.writer.userId);
+
+      return res.render("writer/profile", {
+        title: "Writer Profile",
+        writer,
+      });
+    } catch (error) {
+      console.log(err.message);
+      return res.redirect("/writer/dashboard");
+    }
+  }
+
+  async writerDashboardPage(req, res) {
+    try {
+      const writerId = req.writer.userId;
+
+      // Get only this writer's blogs
+      const blogs = await BlogModel.find({ author: { $eq: writerId } });
+      const writer = await WriterModel.findById(writerId);
+
+      // Counts
+      const publishedCount = blogs.filter(
+        (b) => b.status === "published",
+      ).length;
+      const draftCount = blogs.filter((b) => b.status === "draft").length;
+
+      return res.render("writer/dashboard", {
+        title: "Writer Dashboard",
+        writer,
+        blogs,
+        publishedCount,
+        draftCount,
+      });
+    } catch (error) {
+      console.error(error.message);
+      return res.render("404");
+    }
+  }
+
+  async writerBlogsPage(req, res) {
+    try {
+      const writerId = req.writer.userId;
+
+      const blogs = await BlogModel.aggregate([
+        //COMMENTS
+        {
+          $lookup: {
+            from: "comments",
+            let: { blogId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$blog", "$$blogId"] },
+                },
+              },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "user",
+                  foreignField: "_id",
+                  as: "user",
+                },
+              },
+              {
+                $unwind: {
+                  path: "$user",
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $project: {
+                  content: 1,
+                  createdAt: 1,
+                  user: {
+                    _id: "$user._id",
+                    userName: "$user.userName",
+                  },
+                },
+              },
+            ],
+            as: "comments",
+          },
+        },
+
+        //WRITER JOIN
+        {
+          $lookup: {
+            from: "writers",
+            localField: "author",
+            foreignField: "_id",
+            as: "writerAuthor",
+          },
+        },
+
+        //ADMIN JOIN
+        {
+          $lookup: {
+            from: "admins",
+            localField: "author",
+            foreignField: "_id",
+            as: "adminAuthor",
+          },
+        },
+
+        //MERGE AUTHOR INFO
+        {
+          $addFields: {
+            author: {
+              $cond: {
+                if: { $eq: ["$authorModel", "Writer"] },
+                then: {
+                  _id: { $arrayElemAt: ["$writerAuthor._id", 0] },
+                  name: { $arrayElemAt: ["$writerAuthor.writerName", 0] },
+                  role: "Writer",
+                },
+                else: {
+                  _id: { $arrayElemAt: ["$adminAuthor._id", 0] },
+                  name: { $arrayElemAt: ["$adminAuthor.adminName", 0] },
+                  role: "Admin",
+                },
+              },
+            },
+
+            //important
+            isOwner: {
+              $and: [
+                { $eq: ["$author", writerId] },
+                { $eq: ["$authorModel", "Writer"] },
+              ],
+            },
+
+            totalComments: { $size: "$comments" },
+            totalLikes: { $size: { $ifNull: ["$likes", []] } },
+          },
+        },
+
+        // CLEANUP
+        {
+          $project: {
+            writerAuthor: 0,
+            adminAuthor: 0,
+          },
+        },
+
+        // SORT
+        {
+          $sort: { createdAt: -1 },
+        },
+      ]);
+
+      return res.render("writer/blogs", {
+        title: "Explore Blogs",
+        blogs,
+        writer: req.writer,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.render("404");
+    }
+  }
+
+  async writerfullBlogView(req, res) {
+    try {
+      const { blogId } = req.params;
+
+      const blogData = await BlogModel.aggregate([
+        {
+          $match: {
+            _id: new mongoose.Types.ObjectId(blogId),
+          },
+        },
+
+        // 🔗 COMMENTS + USER
+        {
+          $lookup: {
+            from: "comments",
+            let: { blogId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$blog", "$$blogId"] },
+                },
+              },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "user",
+                  foreignField: "_id",
+                  as: "user",
+                },
+              },
+              {
+                $unwind: {
+                  path: "$user",
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $project: {
+                  content: 1,
+                  createdAt: 1,
+                  user: {
+                    _id: "$user._id",
+                    userName: "$user.userName",
+                  },
+                },
+              },
+            ],
+            as: "comments",
+          },
+        },
+
+        // 🔗 ADMIN AUTHOR
+        {
+          $lookup: {
+            from: "admins",
+            localField: "author",
+            foreignField: "_id",
+            as: "adminAuthor",
+          },
+        },
+
+        // 🔗 WRITER AUTHOR
+        {
+          $lookup: {
+            from: "writers",
+            localField: "author",
+            foreignField: "_id",
+            as: "writerAuthor",
+          },
+        },
+
+        // 🧠 MERGE AUTHOR
+        {
+          $addFields: {
+            author: {
+              $cond: {
+                if: { $eq: ["$authorModel", "Writer"] },
+                then: {
+                  _id: { $arrayElemAt: ["$writerAuthor._id", 0] },
+                  name: { $arrayElemAt: ["$writerAuthor.writerName", 0] },
+                },
+                else: {
+                  _id: { $arrayElemAt: ["$adminAuthor._id", 0] },
+                  name: { $arrayElemAt: ["$adminAuthor.adminName", 0] },
+                },
+              },
+            },
+
+            totalComments: { $size: "$comments" },
+            totalLikes: { $size: { $ifNull: ["$likes", []] } },
+          },
+        },
+
+        {
+          $project: {
+            adminAuthor: 0,
+            writerAuthor: 0,
+          },
+        },
+      ]);
+
+      if (!blogData.length) {
+        return res.redirect("/admin/blogs");
+      }
+
+      const blog = blogData[0];
+
+      return res.render("writer/viewBlog", {
+        title: blog.title,
+        blog,
+      });
+    } catch (err) {
+      console.error("VIEW BLOG ERROR:", err);
+      return res.redirect("/admin/blogs");
     }
   }
 }

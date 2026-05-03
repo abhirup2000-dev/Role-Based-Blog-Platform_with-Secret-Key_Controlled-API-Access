@@ -2,133 +2,78 @@ const WriterModel = require("../models/writer");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
-// const WriterAuthCheck = async (req, res, next) => {
-//   const accessToken = req.cookies?.writerAccessToken;
-//   const refreshToken = req.cookies?.writerRefreshToken;
+const WriterAuthCheck = async (req, res, next) => {
+  const accessToken = req.cookies?.writerAccessToken;
+  const refreshToken = req.cookies?.writerRefreshToken;
 
-//   //  No tokens at all
-//   if (!accessToken && !refreshToken) {
-//     return res.redirect("/writer/login");
-//   }
+  //  No tokens at all
+  if (!accessToken && !refreshToken) {
+    return res.redirect("/writer/login-view");
+  }
 
-//   //  Try ACCESS TOKEN
-//   if (accessToken) {
-//     try {
-//       const decoded = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
+  //  Try ACCESS TOKEN
+  if (accessToken) {
+    try {
+      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
 
-//       req.writer = decoded;
-//       return next();
-//     } catch (err) {
-//       // expired → move to refresh
-//     }
-//   }
+      req.writer = decoded;
+      return next();
+    } catch (err) {
+      // expired → move to refresh
+    }
+  }
 
-//   //  Try REFRESH TOKEN
-//   if (!refreshToken) {
-//     return res.redirect("/writer/login");
-//   }
+  //  Try REFRESH TOKEN
+  if (!refreshToken) {
+    return res.redirect("/writer/login-view");
+  }
 
-//   try {
-//     const decodedRefresh = jwt.verify(
-//       refreshToken,
-//       process.env.JWT_REFRESH_SECRET_KEY,
-//     );
-
-//     const user = await Writer.findById(decodedRefresh.userId);
-
-//     //  Token mismatch (VERY IMPORTANT SECURITY CHECK)
-//     if (!user || user.refreshToken !== refreshToken) {
-//       res.clearCookie("writerAccessToken");
-//       res.clearCookie("writerRefreshToken");
-//       return res.redirect("/writer/login");
-//     }
-
-//     // Generate NEW access token
-//     const newAccessToken = jwt.sign(
-//       {
-//         userId: user._id,
-//         email: user.email,
-//         role: user.role,
-//       },
-//       process.env.JWT_SECRET_KEY,
-//       { expiresIn: "1m" },
-//     );
-
-//     //  Set new access token
-//     res.cookie("writerAccessToken", newAccessToken, {
-//       httpOnly: true,
-//       maxAge: 1 * 60 * 1000,
-//     });
-
-//     req.writer = {
-//       userId: user._id,
-//       email: user.email,
-//       role: user.role,
-//     };
-
-//     return next();
-//   } catch (error) {
-//     res.clearCookie("writerAccessToken");
-//     res.clearCookie("writerRefreshToken");
-//     return res.redirect("/writer/login");
-//   }
-// };
-
-const writerAuthCheck = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const decodedRefresh = jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET_KEY,
+    );
 
-    if (!authHeader) {
-      return res.status(401).json({ msg: "token is required" });
+    const user = await WriterModel.findById(decodedRefresh.userId);
+
+    //  Token mismatch (VERY IMPORTANT SECURITY CHECK)
+    if (!user || user.refreshToken !== refreshToken) {
+      res.clearCookie("writerAccessToken");
+      res.clearCookie("writerRefreshToken");
+      res.clearCookie("apiKey");
+      return res.redirect("/writer/login-view");
     }
 
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.split(" ")[1]
-      : authHeader;
+    // Generate NEW access token
+    const newAccessToken = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: "1m" },
+    );
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    //  Set new access token
+    res.cookie("writerAccessToken", newAccessToken, {
+      httpOnly: true,
+      maxAge: 1 * 60 * 1000,
+    });
 
-    const writer = await WriterModel.findById(decoded.userId);
+    req.writer = {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+    };
 
-    if (!writer) {
-      return res.status(401).json({ msg: "Writer not found" });
-    }
-
-    req.writer = writer; //always full object
-
-    next();
-  } catch (err) {
-    console.error("AUTH ERROR:", err.message);
-    return res.status(401).json({ msg: "Invalid token" });
+    return next();
+  } catch (error) {
+    res.clearCookie("writerAccessToken");
+    res.clearCookie("writerRefreshToken");
+    res.clearCookie("apiKey");
+    return res.redirect("/writer/login-view");
   }
 };
 
-const verifyWriterApiKey = async (req, res, next) => {
-  try {
-    const key = req.headers["x-secret-key"]?.trim();
-
-    if (!key) {
-      return res.status(401).json({ msg: "API key required" });
-    }
-
-    if (!req.writer || !req.writer.apiKey) {
-      return res.status(403).json({ msg: "Unauthorized access" });
-    }
-
-    const writer = await WriterModel.findById(req.writer._id);
-
-    const isMatch = await bcrypt.compare(key, writer.apiKey);
-
-    if (!isMatch) {
-      return res.status(403).json({
-        msg: "Invalid API key, please enter a valid key",
-      });
-    }
-
-    next();
-  } catch (err) {
-    console.error("API KEY VERIFY ERROR:", err);
-    return res.status(500).json({ msg: "Server error" });
-  }
-};
-module.exports = { writerAuthCheck, verifyWriterApiKey };
+module.exports = WriterAuthCheck;
