@@ -62,7 +62,7 @@ class writerController {
       user.apiKey = await bcrypt.hash(newApiKey, 10);
       await user.save();
 
-      //Tokens
+      // Tokens
       const writerAccessToken = jwt.sign(
         {
           userId: user._id,
@@ -79,11 +79,11 @@ class writerController {
         { expiresIn: "7d" },
       );
 
-      // 5. Save refresh token
+      // Save refresh token
       user.refreshToken = writerRefreshToken;
       await user.save();
 
-      // 6. Cookies
+      // Cookies
       res.cookie("writerAccessToken", writerAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -101,7 +101,6 @@ class writerController {
       req.flash("success", "Writer logged in successfully");
       return res.redirect("/writer/dashboard");
 
-      console.log(req.writer);
       // return res.status(200).json({
       //   success: true,
       //   message: "Writer logged in successfully",
@@ -441,12 +440,13 @@ class writerController {
       return res.redirect("/writer/blogs");
     }
   }
+  
   async WriterPasswordUpdate(req, res) {
     try {
       console.log(req.writer);
       const { currentPassword, newPassword } = req.body;
 
-      //validate input
+      // validate input
       if (!currentPassword || !newPassword) {
         req.flash("error", "all password field are required");
         return res.redirect("/writer/profile");
@@ -457,7 +457,7 @@ class writerController {
         return res.redirect("/writer/profile");
       }
 
-      // 2. get admin from DB
+      // get admin from DB
       const writer = await WriterModel.findById(req.writer.userId);
 
       if (!writer) {
@@ -465,7 +465,7 @@ class writerController {
         return res.redirect("/writer/login-view");
       }
 
-      // 3. compare current password
+      // compare current password
       const isMatch = await bcrypt.compare(currentPassword, writer.password);
 
       if (!isMatch) {
@@ -473,10 +473,10 @@ class writerController {
         return res.redirect("/writer/profile");
       }
 
-      // 4. hash new password
+      // hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      // 5. update password
+      // update password
       writer.password = hashedPassword;
       await writer.save();
 

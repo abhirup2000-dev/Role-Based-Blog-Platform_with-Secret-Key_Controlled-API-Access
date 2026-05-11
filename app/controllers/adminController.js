@@ -69,7 +69,10 @@ class adminController {
       const user = await AdminModel.findOne({ email });
 
       if (!user || user.role !== "admin") {
-        req.flash("error", "unauthorized access, please make sure you are login as ADMIN");
+        req.flash(
+          "error",
+          "unauthorized access, please make sure you are login as ADMIN",
+        );
         return res.redirect("/admin/login-view");
       }
 
@@ -132,11 +135,6 @@ class adminController {
         secure: process.env.NODE_ENV === "production",
       });
 
-      req.flash(
-        "success",
-        "Logged in Successfully",
-        "Welcome to Admin Dashboard",
-      );
       req.flash("success", "Welcome to Admin Dashboard");
 
       return res.redirect("/admin/dashboard");
@@ -803,6 +801,9 @@ class adminController {
 
       if (!admin) {
         req.flash("error", "Admin not found");
+        res.clearCookie("adminAccessToken");
+        res.clearCookie("adminRefreshToken");
+        res.clearCookie("apiKey");
         return res.redirect("/admin/login-view");
       }
 

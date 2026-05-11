@@ -1,4 +1,3 @@
-const Admin = require("../models/admin");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const AdminModel = require("../models/admin");
@@ -8,7 +7,7 @@ const adminAuthCheck = async (req, res, next) => {
   const refreshToken = req.cookies?.adminRefreshToken;
 
   //  No tokens at all
-  if (!accessToken && !refreshToken && !apiKey) {
+  if (!accessToken && !refreshToken) {
     return res.redirect("/admin/login-view");
   }
 
